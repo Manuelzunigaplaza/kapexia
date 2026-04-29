@@ -31,6 +31,7 @@ df = cargar_datos()
 # ── Sidebar ──────────────────────────────────────────────
 with st.sidebar:
     st.title("🏗️ KAPEXIA")
+    st.caption("⚡ Demo — 200 items simulados")  # ← agregar esta línea
     st.divider()
     especialidades = ["Todas"] + sorted(df["Especialidad"].unique().tolist())
     st.selectbox("Especialidad", especialidades,
