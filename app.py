@@ -127,19 +127,36 @@ with tab2:
     else:
         st.success("✅ No hay items críticos en esta ventana")
 
-with tab3:
-    top_mci = df[df["mci_score"] > 0].nlargest(15, "mci_score")
-    st.subheader("🔴 Top 15 Items por MCI Score")
-    st.caption("Ordenados por criticidad — estos son los que el expeditor "
-               "debe atender primero")
-    st.dataframe(
-        top_mci[[
-            "Código de MR", "Descripción del item",
-            "Especialidad", "dias_atraso", "mci_score", "semaforo"
-        ]],
-        use_container_width=True,
-        hide_index=True
-    )
+with tab2:
+    ventana = st.session_state["ventana_lookahead"]
+    fecha_limite = FECHA_CORTE + pd.Timedelta(days=ventana)
+
+    st.subheader(f"🔭 Look-Ahead {ventana} días — Items en ROJO")
+    st.caption(f"Materiales requeridos entre {FECHA_CORTE.date()} y {fecha_limite.date()}")
+
+    if COL_FECHA_REQ in df.columns:
+        df[COL_FECHA_REQ] = pd.to_datetime(df[COL_FECHA_REQ], errors="coerce")
+        lookahead = df[
+            (df[COL_FECHA_REQ] >= FECHA_CORTE) &
+            (df[COL_FECHA_REQ] <= fecha_limite) &
+            (df["semaforo"] == "ROJO")
+        ].sort_values("mci_score", ascending=False)
+        st.metric("Items en ventana", len(lookahead))
+        if len(lookahead) > 0:
+            st.dataframe(
+                lookahead[["Código de MR", "Descripción del item",
+                           "Especialidad", COL_FECHA_REQ,
+                           "dias_atraso", "mci_score"]],
+                use_container_width=True, hide_index=True)
+        else:
+            st.success("✅ No hay items críticos en esta ventana")
+    else:
+        st.info("ℹ️ Look-ahead disponible con datos reales del proyecto.")
+        st.caption("En la versión demo esta funcionalidad muestra datos simulados.")
+        demo_lookahead = df[df["semaforo"] == "ROJO"].head(10)
+        st.dataframe(demo_lookahead[["Código de MR", "Descripción del item",
+                                      "Especialidad", "dias_atraso", "mci_score"]],
+                     use_container_width=True, hide_index=True)
 
 # ── Debug ─────────────────────────────────────────────────
 with st.expander("🔧 Debug session_state"):
