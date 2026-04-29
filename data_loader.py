@@ -1,4 +1,4 @@
-# data_loader.py — Version 4: CSV siempre en nube
+# data_loader.py — Version 5: CSV directo en nube
 import pandas as pd
 import sqlite3
 import os
@@ -14,31 +14,22 @@ def calcular_semaforo(dias):
     elif dias <= 7:     return "AMARILLO"
     else:               return "ROJO"
 
-def _bd_tiene_datos() -> bool:
-    """Verifica que la BD existe Y tiene la tabla expediting con datos."""
-    if not os.path.exists(RUTA_BD):
-        return False
-    try:
-        conn = sqlite3.connect(RUTA_BD)
-        cursor = conn.cursor()
-        cursor.execute("SELECT COUNT(*) FROM expediting")
-        count = cursor.fetchone()[0]
-        conn.close()
-        return count > 0
-    except Exception:
-        return False
-
 def cargar_dataset() -> pd.DataFrame:
-    if _bd_tiene_datos():
-        # Modo local — base de datos real
-        conn = sqlite3.connect(RUTA_BD)
+    try:
+        # Intenta leer desde BD — solo funciona si existe Y tiene datos
+        if not os.path.exists(RUTA_BD):
+            raise FileNotFoundError("Sin BD local")
+        conn = sqlite3.connect(f"file:{RUTA_BD}?mode=ro", uri=True)
         df   = pd.read_sql("SELECT * FROM expediting", conn)
         conn.close()
-        df[COL_LLEGADA] = pd.to_datetime(df[COL_LLEGADA], errors="coerce")
+        if len(df) == 0:
+            raise ValueError("BD vacia")
+        df[COL_LLEGADA]   = pd.to_datetime(df[COL_LLEGADA], errors="coerce")
         df["dias_atraso"] = (df[COL_LLEGADA] - FECHA_CORTE).dt.days * -1
         df["semaforo"]    = df["dias_atraso"].apply(calcular_semaforo)
-    else:
-        # Modo nube — dataset demo CSV
+
+    except Exception:
+        # Fallback: CSV demo para deploy en nube
         df = pd.read_csv(RUTA_CSV)
         df["dias_atraso"] = pd.to_numeric(df["dias_atraso"], errors="coerce")
         if "semaforo" not in df.columns:
